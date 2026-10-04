@@ -1,0 +1,1994 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>FaceAttend – AI Face Recognition Attendance System</title>
+  <meta name="description" content="Smart attendance management using real-time face recognition. Register students with multi-angle capture, train LBPH model, and track attendance with 100% precision." />
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&family=JetBrains+Mono:wght@400;600&display=swap" rel="stylesheet" />
+  <style>
+    /* ───────────────── DESIGN SYSTEM ───────────────── */
+    :root {
+      --bg:           #07090f;
+      --bg1:          #0d1117;
+      --bg2:          #12181f;
+      --card:         rgba(18, 26, 38, 0.88);
+      --glass:        rgba(20, 30, 48, 0.65);
+      --border:       rgba(255,255,255,0.08);
+      --border-hi:    rgba(99,179,237,0.4);
+      --primary:      #4f9cf9;
+      --primary-dark: #2563eb;
+      --primary-glow: rgba(79,156,249,0.35);
+      --green:        #22d3a8;
+      --green-glow:   rgba(34,211,168,0.35);
+      --red:          #f87171;
+      --red-glow:     rgba(248,113,113,0.35);
+      --yellow:       #fbbf24;
+      --text:         #e2e8f0;
+      --muted:        #64748b;
+      --radius:       14px;
+      --radius-sm:    8px;
+      --shadow:       0 24px 48px -12px rgba(0,0,0,0.65);
+      --transition:   all 0.22s cubic-bezier(0.4,0,0.2,1);
+    }
+
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+    body {
+      font-family: 'Inter', -apple-system, sans-serif;
+      background: var(--bg);
+      color: var(--text);
+      min-height: 100vh;
+      background-image:
+        radial-gradient(ellipse at 15% 15%, rgba(79,156,249,0.09) 0%, transparent 50%),
+        radial-gradient(ellipse at 85% 85%, rgba(34,211,168,0.07) 0%, transparent 50%);
+      background-attachment: fixed;
+      overflow-x: hidden;
+    }
+
+    ::-webkit-scrollbar { width: 6px; height: 6px; }
+    ::-webkit-scrollbar-track { background: var(--bg1); }
+    ::-webkit-scrollbar-thumb { background: rgba(99,179,237,0.3); border-radius: 3px; }
+
+    /* ─── HEADER ─── */
+    header {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      padding: 0 2rem;
+      height: 68px;
+      border-bottom: 1px solid var(--border);
+      backdrop-filter: blur(24px);
+      background: rgba(7,9,15,0.85);
+      position: sticky;
+      top: 0;
+      z-index: 100;
+    }
+
+    .brand {
+      display: flex;
+      align-items: center;
+      gap: 12px;
+      text-decoration: none;
+    }
+
+    .brand-logo {
+      width: 40px;
+      height: 40px;
+      background: linear-gradient(135deg, var(--primary), var(--green));
+      border-radius: 11px;
+      display: grid;
+      place-items: center;
+      font-size: 22px;
+      box-shadow: 0 0 22px var(--primary-glow);
+    }
+
+    .brand-name {
+      font-size: 1.25rem;
+      font-weight: 800;
+      letter-spacing: -0.4px;
+      background: linear-gradient(90deg, #fff 45%, #93c5fd);
+      -webkit-background-clip: text;
+      -webkit-text-fill-color: transparent;
+    }
+
+    .status-badge {
+      font-size: 0.72rem;
+      padding: 4px 12px;
+      border-radius: 20px;
+      font-weight: 600;
+      letter-spacing: 0.5px;
+      display: inline-flex;
+      align-items: center;
+      gap: 6px;
+    }
+
+    .status-badge.trained {
+      background: rgba(34,211,168,0.15);
+      color: var(--green);
+      border: 1px solid rgba(34,211,168,0.35);
+    }
+
+    .status-badge.untrained {
+      background: rgba(251,191,36,0.15);
+      color: var(--yellow);
+      border: 1px solid rgba(251,191,36,0.35);
+    }
+
+    /* ─── NAV ─── */
+    nav {
+      display: flex;
+      gap: 5px;
+      background: var(--bg2);
+      padding: 5px;
+      border-radius: 12px;
+      border: 1px solid var(--border);
+    }
+
+    .nav-btn {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      background: transparent;
+      border: none;
+      color: var(--muted);
+      padding: 8px 16px;
+      border-radius: 8px;
+      cursor: pointer;
+      font-weight: 500;
+      font-size: 0.88rem;
+      transition: var(--transition);
+      font-family: inherit;
+    }
+
+    .nav-btn:hover { color: var(--text); background: rgba(255,255,255,0.05); }
+    .nav-btn.active {
+      color: #fff;
+      background: var(--primary-dark);
+      box-shadow: 0 0 16px var(--primary-glow);
+    }
+
+    /* ─── MAIN ─── */
+    main {
+      max-width: 1320px;
+      margin: 0 auto;
+      padding: 2rem;
+    }
+
+    .tab { display: none; animation: fadeUp 0.3s ease; }
+    .tab.active { display: block; }
+
+    @keyframes fadeUp {
+      from { opacity: 0; transform: translateY(12px); }
+      to   { opacity: 1; transform: translateY(0); }
+    }
+
+    /* ─── STATS ─── */
+    .stats-grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+      gap: 1.25rem;
+      margin-bottom: 2rem;
+    }
+
+    .stat-card {
+      background: var(--card);
+      border: 1px solid var(--border);
+      border-radius: var(--radius);
+      padding: 1.5rem;
+      backdrop-filter: blur(12px);
+      transition: var(--transition);
+      position: relative;
+      overflow: hidden;
+    }
+
+    .stat-card::after {
+      content: '';
+      position: absolute;
+      inset: 0;
+      background: linear-gradient(135deg, rgba(79,156,249,0.05), transparent);
+      pointer-events: none;
+    }
+
+    .stat-card:hover { transform: translateY(-3px); border-color: var(--border-hi); }
+    .stat-icon { font-size: 2.2rem; margin-bottom: .5rem; }
+    .stat-val  { font-size: 2.5rem; font-weight: 800; line-height: 1; color: #fff; }
+    .stat-lbl  { font-size: 0.78rem; color: var(--muted); text-transform: uppercase; letter-spacing: .8px; margin-top: .4rem; }
+
+    /* ─── CARD ─── */
+    .card {
+      background: var(--card);
+      border: 1px solid var(--border);
+      border-radius: var(--radius);
+      padding: 1.75rem;
+      backdrop-filter: blur(16px);
+      box-shadow: var(--shadow);
+      margin-bottom: 1.5rem;
+    }
+
+    .card-title {
+      font-size: 1.15rem;
+      font-weight: 600;
+      display: flex;
+      align-items: center;
+      gap: 12px;
+      margin-bottom: 1.4rem;
+      padding-bottom: 1rem;
+      border-bottom: 1px solid var(--border);
+    }
+
+    .card-title .icon {
+      width: 36px;
+      height: 36px;
+      border-radius: 9px;
+      display: grid;
+      place-items: center;
+      font-size: 17px;
+    }
+
+    .icon-blue   { background: rgba(79,156,249,0.15); color: var(--primary); }
+    .icon-green  { background: rgba(34,211,168,0.15); color: var(--green); }
+    .icon-yellow { background: rgba(251,191,36,0.15); color: var(--yellow); }
+    .icon-red    { background: rgba(248,113,113,0.15); color: var(--red); }
+
+    /* ─── FORMS ─── */
+    .form-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 1rem; }
+    .form-grid.cols3 { grid-template-columns: 1fr 1fr 1fr; }
+    @media (max-width: 768px) { .form-grid, .form-grid.cols3 { grid-template-columns: 1fr; } }
+
+    .form-group { display: flex; flex-direction: column; gap: 6px; }
+    .form-group.full { grid-column: 1 / -1; }
+
+    label {
+      font-size: 0.8rem;
+      font-weight: 500;
+      color: var(--muted);
+      text-transform: uppercase;
+      letter-spacing: .6px;
+    }
+
+    input, select {
+      background: rgba(7,9,15,0.75);
+      border: 1px solid var(--border);
+      border-radius: var(--radius-sm);
+      padding: 10px 14px;
+      color: var(--text);
+      font-size: 0.95rem;
+      font-family: inherit;
+      outline: none;
+      transition: var(--transition);
+    }
+
+    input:focus, select:focus {
+      border-color: var(--primary);
+      box-shadow: 0 0 0 3px var(--primary-glow);
+    }
+
+    select option { background: var(--bg1); }
+
+    /* ─── BUTTONS ─── */
+    .btn {
+      display: inline-flex;
+      align-items: center;
+      gap: 8px;
+      padding: 10px 22px;
+      border-radius: var(--radius-sm);
+      font-weight: 600;
+      font-size: 0.9rem;
+      cursor: pointer;
+      border: none;
+      font-family: inherit;
+      transition: var(--transition);
+      user-select: none;
+    }
+
+    .btn:disabled { opacity: .45; cursor: not-allowed; transform: none !important; }
+
+    .btn-primary {
+      background: linear-gradient(135deg, var(--primary), var(--primary-dark));
+      color: #fff;
+      box-shadow: 0 4px 15px var(--primary-glow);
+    }
+    .btn-primary:hover:not(:disabled) {
+      transform: translateY(-2px);
+      box-shadow: 0 8px 25px var(--primary-glow);
+    }
+
+    .btn-green {
+      background: linear-gradient(135deg, var(--green), #059669);
+      color: #fff;
+      box-shadow: 0 4px 15px var(--green-glow);
+    }
+    .btn-green:hover:not(:disabled) {
+      transform: translateY(-2px);
+      box-shadow: 0 8px 25px var(--green-glow);
+    }
+
+    .btn-red {
+      background: linear-gradient(135deg, var(--red), #dc2626);
+      color: #fff;
+      box-shadow: 0 4px 15px var(--red-glow);
+    }
+    .btn-red:hover:not(:disabled) { transform: translateY(-2px); }
+
+    .btn-ghost {
+      background: rgba(255,255,255,0.06);
+      color: var(--text);
+      border: 1px solid var(--border);
+    }
+    .btn-ghost:hover:not(:disabled) { background: rgba(255,255,255,0.12); }
+
+    /* ─── CAMERA VIEWPORT ─── */
+    .camera-wrapper {
+      position: relative;
+      background: #000;
+      border-radius: var(--radius);
+      overflow: hidden;
+      aspect-ratio: 4/3;
+      border: 2px solid var(--border);
+      box-shadow: 0 8px 30px rgba(0,0,0,0.5);
+    }
+
+    #camera-video, #live-video {
+      width: 100%;
+      height: 100%;
+      object-fit: cover;
+      transform: scaleX(-1); /* mirror view for natural selfie perspective */
+    }
+
+    #reg-canvas, #live-canvas {
+      position: absolute;
+      inset: 0;
+      width: 100%;
+      height: 100%;
+      pointer-events: none;
+    }
+
+    .camera-overlay {
+      position: absolute;
+      inset: 0;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      background: rgba(7,9,15,0.8);
+      backdrop-filter: blur(6px);
+      z-index: 5;
+      flex-direction: column;
+      gap: 1rem;
+      text-align: center;
+      padding: 2rem;
+    }
+
+    .camera-overlay.hidden { display: none; }
+
+    /* ─── ANGLE GUIDE ─── */
+    .angle-guide {
+      background: rgba(7,9,15,0.85);
+      border: 1px solid var(--border-hi);
+      border-radius: var(--radius);
+      padding: 1.25rem 1.5rem;
+      text-align: center;
+    }
+
+    .angle-title {
+      font-size: 1.25rem;
+      font-weight: 700;
+      color: #fff;
+      margin-bottom: .4rem;
+    }
+
+    .angle-instruction {
+      font-size: 0.88rem;
+      color: var(--muted);
+    }
+
+    .angle-steps {
+      display: flex;
+      gap: .6rem;
+      justify-content: center;
+      margin-top: 1rem;
+      flex-wrap: wrap;
+    }
+
+    .angle-step {
+      padding: 6px 14px;
+      border-radius: 20px;
+      font-size: 0.8rem;
+      font-weight: 600;
+      border: 1px solid var(--border);
+      color: var(--muted);
+      background: transparent;
+      transition: var(--transition);
+    }
+
+    .angle-step.active {
+      background: rgba(79,156,249,0.22);
+      border-color: var(--primary);
+      color: #93c5fd;
+      box-shadow: 0 0 12px var(--primary-glow);
+    }
+
+    .angle-step.done {
+      background: rgba(34,211,168,0.18);
+      border-color: var(--green);
+      color: var(--green);
+    }
+
+    /* ─── CAPTURE DOTS ─── */
+    .capture-count {
+      display: flex;
+      gap: .4rem;
+      justify-content: center;
+      margin: .8rem 0 .2rem;
+    }
+
+    .count-dot {
+      width: 12px;
+      height: 12px;
+      border-radius: 50%;
+      background: var(--border);
+      transition: var(--transition);
+    }
+
+    .count-dot.filled { background: var(--primary); box-shadow: 0 0 10px var(--primary-glow); }
+    .count-dot.done-dot { background: var(--green); box-shadow: 0 0 10px var(--green-glow); }
+
+    /* ─── LIVE ATTENDANCE ─── */
+    .live-controls {
+      display: flex;
+      gap: 1.25rem;
+      align-items: center;
+      flex-wrap: wrap;
+      margin-bottom: 1.25rem;
+    }
+
+    .live-grid {
+      display: grid;
+      grid-template-columns: 2.2fr 1fr;
+      gap: 1.5rem;
+      align-items: start;
+    }
+
+    @media (max-width: 950px) { .live-grid { grid-template-columns: 1fr; } }
+
+    /* ─── RECOGNIZED LIST ─── */
+    .recognized-list {
+      display: flex;
+      flex-direction: column;
+      gap: .7rem;
+      max-height: 480px;
+      overflow-y: auto;
+      padding-right: 4px;
+    }
+
+    .rec-item {
+      display: flex;
+      align-items: center;
+      gap: .9rem;
+      padding: .85rem 1.1rem;
+      border-radius: var(--radius-sm);
+      border: 1px solid var(--border);
+      animation: slideIn 0.3s cubic-bezier(0.4,0,0.2,1);
+    }
+
+    @keyframes slideIn {
+      from { opacity: 0; transform: translateX(12px); }
+      to   { opacity: 1; transform: translateX(0); }
+    }
+
+    .rec-item.present {
+      background: rgba(34,211,168,0.08);
+      border-color: rgba(34,211,168,0.3);
+    }
+
+    .rec-avatar {
+      width: 42px;
+      height: 42px;
+      border-radius: 50%;
+      display: grid;
+      place-items: center;
+      font-size: 1.15rem;
+      font-weight: 700;
+      flex-shrink: 0;
+    }
+
+    .rec-avatar.green { background: rgba(34,211,168,0.2); color: var(--green); }
+
+    .rec-info { flex: 1; min-width: 0; }
+    .rec-name { font-weight: 600; font-size: 0.95rem; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+    .rec-roll { font-size: 0.78rem; color: var(--muted); font-family: 'JetBrains Mono', monospace; }
+    .rec-time { font-size: 0.75rem; color: var(--green); font-weight: 600; white-space: nowrap; }
+
+    .btn-del-mini {
+      background: rgba(248, 113, 113, 0.12);
+      border: 1px solid rgba(248, 113, 113, 0.28);
+      color: var(--red);
+      width: 24px;
+      height: 24px;
+      border-radius: 6px;
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      font-size: 0.75rem;
+      font-weight: 700;
+      cursor: pointer;
+      transition: var(--transition);
+      flex-shrink: 0;
+    }
+    .btn-del-mini:hover {
+      background: var(--red);
+      color: #fff;
+      border-color: var(--red);
+      transform: scale(1.1);
+    }
+
+    .btn-del-row {
+      background: rgba(248, 113, 113, 0.12);
+      border: 1px solid rgba(248, 113, 113, 0.3);
+      color: var(--red);
+      padding: 0.32rem 0.65rem;
+      border-radius: 6px;
+      font-size: 0.78rem;
+      font-weight: 600;
+      cursor: pointer;
+      transition: var(--transition);
+      display: inline-flex;
+      align-items: center;
+      gap: 4px;
+    }
+    .btn-del-row:hover {
+      background: var(--red);
+      color: #fff;
+      border-color: var(--red);
+    }
+
+    /* ─── TABLE ─── */
+    .table-wrap { overflow-x: auto; border-radius: var(--radius); border: 1px solid var(--border); }
+
+    table {
+      width: 100%;
+      border-collapse: collapse;
+      font-size: 0.88rem;
+    }
+
+    thead th {
+      background: var(--bg2);
+      padding: .85rem 1.1rem;
+      text-align: left;
+      font-size: 0.74rem;
+      text-transform: uppercase;
+      letter-spacing: .8px;
+      color: var(--muted);
+      border-bottom: 1px solid var(--border);
+    }
+
+    tbody td {
+      padding: 1rem 1.1rem;
+      border-bottom: 1px solid rgba(255,255,255,0.04);
+    }
+
+    tbody tr:hover td { background: rgba(255,255,255,0.025); }
+
+    .badge {
+      display: inline-flex;
+      align-items: center;
+      gap: 5px;
+      padding: 3px 10px;
+      border-radius: 20px;
+      font-size: 0.75rem;
+      font-weight: 600;
+    }
+
+    .badge-green { background: rgba(34,211,168,0.15); color: var(--green); border: 1px solid rgba(34,211,168,0.3); }
+    .badge-blue  { background: rgba(79,156,249,0.15); color: var(--primary); border: 1px solid rgba(79,156,249,0.3); }
+    .badge-red   { background: rgba(248,113,113,0.15); color: var(--red); border: 1px solid rgba(248,113,113,0.3); }
+
+    /* ─── TOAST ─── */
+    #toast-container {
+      position: fixed;
+      bottom: 1.5rem;
+      right: 1.5rem;
+      z-index: 9999;
+      display: flex;
+      flex-direction: column;
+      gap: .7rem;
+      pointer-events: none;
+    }
+
+    .toast {
+      padding: .9rem 1.3rem;
+      border-radius: var(--radius-sm);
+      font-size: 0.9rem;
+      font-weight: 600;
+      backdrop-filter: blur(14px);
+      animation: toastIn .3s ease;
+      pointer-events: auto;
+      max-width: 360px;
+      box-shadow: 0 10px 30px rgba(0,0,0,0.5);
+      display: flex;
+      align-items: center;
+      gap: 10px;
+    }
+
+    .toast.success { background: rgba(34,211,168,0.95); color: #022c22; }
+    .toast.error   { background: rgba(248,113,113,0.95); color: #450a0a; }
+    .toast.info    { background: rgba(79,156,249,0.95);  color: #0b1f3a; }
+
+    @keyframes toastIn {
+      from { opacity: 0; transform: translateX(25px); }
+      to   { opacity: 1; transform: translateX(0); }
+    }
+
+    .spinner {
+      width: 18px;
+      height: 18px;
+      border: 2px solid rgba(255,255,255,0.3);
+      border-top-color: #fff;
+      border-radius: 50%;
+      animation: spin .7s linear infinite;
+      display: inline-block;
+    }
+    @keyframes spin { to { transform: rotate(360deg); } }
+
+    /* ─── UTILITIES ─── */
+    .flex     { display: flex; }
+    .flex-col { display: flex; flex-direction: column; }
+    .gap-1    { gap: .5rem; }
+    .gap-2    { gap: 1rem; }
+    .items-center { align-items: center; }
+    .justify-between { justify-content: space-between; }
+    .w-full   { width: 100%; }
+    .mt-1     { margin-top: .5rem; }
+    .mt-2     { margin-top: 1rem; }
+    .text-sm  { font-size: 0.85rem; }
+    .text-muted { color: var(--muted); }
+    .mono     { font-family: 'JetBrains Mono', monospace; }
+
+    .section-title { font-size: 1.6rem; font-weight: 800; margin-bottom: .4rem; }
+    .section-sub   { font-size: 0.9rem; color: var(--muted); margin-bottom: 1.5rem; }
+
+    .empty-state { text-align: center; padding: 3rem; color: var(--muted); }
+    .empty-state .icon { font-size: 3rem; margin-bottom: .8rem; }
+
+    /* Training steps */
+    .train-steps { display: flex; flex-direction: column; gap: .6rem; margin-top: 1rem; }
+    .train-step {
+      display: flex;
+      align-items: center;
+      gap: .85rem;
+      padding: .75rem 1.1rem;
+      border-radius: var(--radius-sm);
+      background: rgba(255,255,255,0.03);
+      border: 1px solid var(--border);
+      font-size: 0.9rem;
+      transition: var(--transition);
+    }
+    .train-step.active { border-color: var(--primary); background: rgba(79,156,249,0.1); }
+    .train-step.done   { border-color: var(--green);   background: rgba(34,211,168,0.1); }
+    .step-icon { font-size: 1.3rem; flex-shrink: 0; }
+  </style>
+</head>
+<body>
+
+<!-- TOAST NOTIFICATIONS -->
+<div id="toast-container"></div>
+
+<!-- HEADER -->
+<header>
+  <div class="brand">
+    <div class="brand-logo">🎓</div>
+    <span class="brand-name">FaceAttend</span>
+  </div>
+  <nav id="main-nav">
+    <button class="nav-btn active" data-tab="dashboard" onclick="switchTab('dashboard')">
+      📊 Dashboard
+    </button>
+    <button class="nav-btn" data-tab="register" onclick="switchTab('register')">
+      👤 Register
+    </button>
+    <button class="nav-btn" data-tab="train" onclick="switchTab('train')">
+      🧠 Train Model
+    </button>
+    <button class="nav-btn" data-tab="attendance" onclick="switchTab('attendance')">
+      📷 Live Attendance
+    </button>
+    <button class="nav-btn" data-tab="reports" onclick="switchTab('reports')">
+      📋 Reports
+    </button>
+  </nav>
+  <span id="model-badge" class="status-badge untrained">⚠ Checking...</span>
+</header>
+
+<!-- MAIN CONTENT -->
+<main>
+
+  <!-- ═══════════════════════ DASHBOARD TAB ═══════════════════════ -->
+  <div id="tab-dashboard" class="tab active">
+    <div class="section-title">FaceAttend Dashboard 👋</div>
+    <div class="section-sub">Smart face recognition attendance system — multi-angle biometric training with zero false marks.</div>
+
+    <div class="stats-grid" id="stats-grid">
+      <div class="stat-card"><div class="stat-icon">👥</div><div class="stat-val" id="s-students">—</div><div class="stat-lbl">Registered Students</div></div>
+      <div class="stat-card"><div class="stat-icon">📚</div><div class="stat-val" id="s-subjects">—</div><div class="stat-lbl">Active Subjects</div></div>
+      <div class="stat-card"><div class="stat-icon">🧠</div><div class="stat-val" id="s-model">—</div><div class="stat-lbl">Model Status</div></div>
+      <div class="stat-card"><div class="stat-icon">📷</div><div class="stat-val" id="s-images">—</div><div class="stat-lbl">Face Datasets</div></div>
+    </div>
+
+    <div class="card">
+      <div class="card-title">
+        <div class="icon icon-blue">⚡</div>
+        Quick Actions
+      </div>
+      <div class="flex gap-2" style="flex-wrap:wrap">
+        <button class="btn btn-primary" onclick="switchTab('register')">👤 Register New Student</button>
+        <button class="btn btn-green" onclick="switchTab('train')">🧠 Train / Retrain Model</button>
+        <button class="btn btn-primary" onclick="switchTab('attendance')">📷 Start Live Attendance</button>
+        <button class="btn btn-ghost" onclick="switchTab('reports')">📋 View Reports</button>
+        <button class="btn btn-ghost" style="margin-left:auto" onclick="loadDashboard()">🔄 Refresh</button>
+      </div>
+    </div>
+
+    <div class="card">
+      <div class="card-title" style="justify-content:space-between">
+        <div class="flex items-center gap-1">
+          <div class="icon icon-blue">📝</div>
+          Registered Students Directory
+        </div>
+        <span class="text-sm text-muted" id="dash-students-count"></span>
+      </div>
+      <div id="dash-students-wrap">
+        <div class="empty-state"><div class="icon">👥</div>Loading students...</div>
+      </div>
+    </div>
+  </div>
+
+  <!-- ═══════════════════════ REGISTER TAB ═══════════════════════ -->
+  <div id="tab-register" class="tab">
+    <div class="section-title">Student Registration (Frontal Biometrics)</div>
+    <div class="section-sub">1-Click straight face capture with automatic AI augmentation (100+ training samples) for 99%+ accuracy.</div>
+
+    <div style="display:grid; grid-template-columns:1fr 1fr; gap:1.5rem;">
+      <!-- Student Details Form -->
+      <div>
+        <div class="card">
+          <div class="card-title"><div class="icon icon-blue">📝</div>Student Details</div>
+          <div class="flex-col gap-1">
+            <div class="form-grid">
+              <div class="form-group">
+                <label>Enrollment No. *</label>
+                <input type="text" id="reg-enrollment" placeholder="e.g. 101" maxlength="20" oninput="checkEnrollment()" />
+              </div>
+              <div class="form-group">
+                <label>Full Name *</label>
+                <input type="text" id="reg-name" placeholder="e.g. Dhanush Kumar" />
+              </div>
+              <div class="form-group">
+                <label>Department</label>
+                <input type="text" id="reg-dept" placeholder="e.g. CSE / IT" />
+              </div>
+              <div class="form-group">
+                <label>Email</label>
+                <input type="email" id="reg-email" placeholder="student@college.edu" />
+              </div>
+              <div class="form-group full">
+                <label>Phone</label>
+                <input type="tel" id="reg-phone" placeholder="10-digit mobile number" maxlength="10" />
+              </div>
+            </div>
+            <div id="enroll-check-msg" class="text-sm mt-1"></div>
+          </div>
+        </div>
+
+        <!-- High-Precision Enrollment Info Guide -->
+        <div class="card" id="angle-guide-card">
+          <div class="card-title"><div class="icon icon-yellow">⚡</div>1-Click Frontal Enrollment (10 Clean Images)</div>
+          <div style="font-size:0.86rem; color:var(--muted); line-height:1.75;">
+            • <strong>Pose:</strong> Simply look straight into the camera (neutral face).<br>
+            • <strong>Fast & Clean:</strong> Captures exactly <strong>10 clear facial crops</strong> for high-accuracy training without unnecessary bulk.<br>
+            • <strong>High Precision:</strong> Enhanced with CLAHE contrast normalization for consistent recognition!
+          </div>
+        </div>
+      </div>
+
+      <!-- Live Guided Camera -->
+      <div>
+        <div class="card">
+          <div class="card-title"><div class="icon icon-green">📷</div>Frontal Face Capture</div>
+
+          <div class="angle-guide" id="angle-guide">
+            <div class="angle-title" id="angle-label">👁 Look Straight at Camera</div>
+            <div class="angle-instruction" id="angle-hint">Fill in student details, click "Start Camera", then "Capture Face"</div>
+            <div class="capture-count" id="capture-dots"></div>
+          </div>
+
+          <div class="camera-wrapper mt-2">
+            <video id="camera-video" autoplay muted playsinline></video>
+            <canvas id="reg-canvas"></canvas>
+            <div class="camera-overlay" id="reg-overlay">
+              <div style="font-size:3.5rem">📷</div>
+              <div style="font-weight:700; font-size:1.1rem">Camera Ready</div>
+              <div class="text-muted text-sm">Click "Start Camera" to open camera and begin enrollment</div>
+            </div>
+          </div>
+
+          <div class="flex gap-1 mt-2" style="flex-wrap:wrap">
+            <button class="btn btn-primary" id="btn-start-capture" onclick="startCapture()">▶ Start Camera</button>
+            <button class="btn btn-green" id="btn-capture-angle" onclick="captureFace()" disabled>📸 Capture Face (1-Click)</button>
+            <button class="btn btn-ghost" id="btn-stop-cam" onclick="stopCamera()" disabled>⏹ Cancel</button>
+          </div>
+
+          <div id="reg-status" class="mt-2 text-sm"></div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- ═══════════════════════ TRAIN MODEL TAB ═══════════════════════ -->
+  <div id="tab-train" class="tab">
+    <div class="section-title">Train Face Recognition Model</div>
+    <div class="section-sub">Extracts normalized LBPH embeddings from all student datasets and generates the high-precision recognizer.</div>
+
+    <div style="display:grid; grid-template-columns:1.2fr 1fr; gap:1.5rem;">
+      <div class="card">
+        <div class="card-title"><div class="icon icon-yellow">🧠</div>LBPH Model Pipeline</div>
+        <div class="flex-col gap-2">
+          <div class="train-step" id="tstep-1">
+            <span class="step-icon">1️⃣</span>
+            <div>
+              <div style="font-weight:600">Scan Student Face Images</div>
+              <div class="text-muted text-sm">Scan Straight face dataset folders (100+ augmented samples per student)</div>
+            </div>
+          </div>
+          <div class="train-step" id="tstep-2">
+            <span class="step-icon">2️⃣</span>
+            <div>
+              <div style="font-weight:600">Preprocessing & CLAHE Equalization</div>
+              <div class="text-muted text-sm">CLAHE adaptive contrast enhancement & normalized 200x200 crops</div>
+            </div>
+          </div>
+          <div class="train-step" id="tstep-3">
+            <span class="step-icon">3️⃣</span>
+            <div>
+              <div style="font-weight:600">Train LBPH Face Classifier</div>
+              <div class="text-muted text-sm">Learn distinct facial texture patterns for each student ID</div>
+            </div>
+          </div>
+          <div class="train-step" id="tstep-4">
+            <span class="step-icon">4️⃣</span>
+            <div>
+              <div style="font-weight:600">Compile & Cache Model</div>
+              <div class="text-muted text-sm">Save to data/models/face_model.yml for sub-30ms recognition</div>
+            </div>
+          </div>
+          <button class="btn btn-primary w-full mt-1" id="btn-train" onclick="trainModel()">
+            🧠 Start Model Training
+          </button>
+          <div id="train-status" class="text-sm mt-1"></div>
+        </div>
+      </div>
+
+      <div class="card">
+        <div class="card-title"><div class="icon icon-green">ℹ️</div>Model Information</div>
+        <div class="flex-col gap-2">
+          <div class="train-step done" id="train-info-model">
+            <span class="step-icon">📊</span>
+            <div>
+              <div style="font-weight:600">Current Status</div>
+              <div class="text-muted text-sm" id="train-info-msg">Checking...</div>
+            </div>
+          </div>
+          <div style="padding: 1.25rem; background: rgba(255,255,255,0.03); border-radius: var(--radius-sm); border: 1px solid var(--border); line-height: 1.7; font-size: 0.85rem; color: var(--muted);">
+            <strong style="color:var(--text); display:block; margin-bottom:.5rem;">🛡️ Reliability Highlights:</strong>
+            • <strong>3-Angle Capture:</strong> 45 face images per student (15 shots per angle: Straight, Left, Right).<br>
+            • <strong>Histogram Equalization:</strong> Neutralizes harsh shadows & screen glare.<br>
+            • <strong>Strict Unknown Rejection:</strong> Unregistered faces get RED box and are NEVER marked present.<br>
+            • <strong>Zero Ghost IDs:</strong> Matches are validated against the actual students database.
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- ═══════════════════════ LIVE ATTENDANCE TAB ═══════════════════════ -->
+  <div id="tab-attendance" class="tab">
+    <div class="section-title">Live Biometric Attendance</div>
+    <div class="section-sub">Real-time camera recognition. Verified faces are marked Present with instant audio-visual feedback.</div>
+
+    <div class="card">
+      <div class="live-controls">
+        <div class="form-group" style="min-width:240px">
+          <label>Subject / Class Session *</label>
+          <select id="live-subject" onchange="onLiveSubjectSelect(this.value)">
+            <option value="General">General</option>
+            <option value="__NEW__">➕ Add New Subject...</option>
+          </select>
+        </div>
+        <div style="margin-top:auto; display:flex; gap:.6rem;">
+          <button class="btn btn-green" id="btn-live-start" onclick="startLive()">📷 Start Live Camera</button>
+          <button class="btn btn-red"   id="btn-live-stop"  onclick="stopLive()" disabled>⏹ Stop Camera</button>
+        </div>
+        <div style="margin-top:auto; margin-left:auto; display:flex; gap:1rem; align-items:center;">
+          <span class="badge badge-blue" id="live-fps">FPS: —</span>
+          <span class="badge badge-green" id="live-sound-status">🔊 Audio Active</span>
+        </div>
+      </div>
+    </div>
+
+    <div class="live-grid">
+      <!-- Camera Feed with HUD Overlay -->
+      <div class="card">
+        <div class="card-title" style="justify-content:space-between">
+          <div class="flex items-center gap-1">
+            <div class="icon icon-green">🎥</div>
+            Live Recognition Feed
+          </div>
+          <span class="text-sm text-muted">Green = Verified • Red = Unknown</span>
+        </div>
+        <div class="camera-wrapper">
+          <video id="live-video" autoplay muted playsinline></video>
+          <canvas id="live-canvas"></canvas>
+          <div class="camera-overlay" id="live-overlay">
+            <div style="font-size:3.5rem">🎥</div>
+            <div style="font-weight:700; font-size:1.1rem">Camera Paused</div>
+            <div class="text-muted text-sm">Click "Start Live Camera" to begin scanning faces</div>
+          </div>
+        </div>
+      </div>
+
+      <!-- Real-time Attendance Sidebar -->
+      <div class="card">
+        <div class="card-title" style="justify-content:space-between">
+          <div class="flex items-center gap-1">
+            <div class="icon icon-green">✅</div>
+            <span>Present Today (<span id="present-subject-label" style="color:var(--primary); font-weight:700;">General</span>)</span>
+          </div>
+          <span class="badge badge-green" id="present-count">0 present</span>
+        </div>
+        <div class="recognized-list" id="recognized-list">
+          <div class="empty-state" style="padding:2.5rem 1rem">
+            <div class="icon">📋</div>
+            <div class="text-sm">No attendance marked yet for General</div>
+            <div class="text-muted" style="font-size:0.75rem; margin-top:.3rem">Verified faces will show here automatically</div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- ═══════════════════════ REPORTS TAB ═══════════════════════ -->
+  <div id="tab-reports" class="tab">
+    <div class="section-title">Attendance Reports & CSV Export</div>
+    <div class="section-sub">Inspect attendance logs and export official CSV reports organized by subject.</div>
+
+    <div class="card">
+      <div class="card-title"><div class="icon icon-blue">🔍</div>Filter by Subject</div>
+      <div class="flex gap-2 items-center" style="flex-wrap:wrap">
+        <div class="form-group" style="min-width:240px">
+          <label>Subject</label>
+          <select id="report-subject" onchange="loadReport()">
+            <option value="">Select Subject...</option>
+          </select>
+        </div>
+        <div style="margin-top:auto; display:flex; gap:.6rem; flex-wrap:wrap">
+          <button class="btn btn-ghost" onclick="loadReport()">🔄 Refresh Records</button>
+          <button class="btn btn-green" onclick="downloadReport()">⬇ Download CSV</button>
+          <button class="btn btn-ghost" onclick="loadSubjects()">🔄 Refresh Subjects</button>
+          <button class="btn btn-red"   onclick="clearSubjectRecords()" style="font-size:0.83rem;">🗑️ Clear Records</button>
+        </div>
+      </div>
+    </div>
+
+    <div class="card" id="report-card">
+      <div class="card-title"><div class="icon icon-blue">📋</div>Attendance Log Table</div>
+      <div id="report-table-wrap">
+        <div class="empty-state"><div class="icon">📋</div>Select a subject to view attendance records</div>
+      </div>
+    </div>
+  </div>
+
+</main>
+
+<script>
+// ═══════════════════════ GLOBAL CONFIG & STATE ═══════════════════════
+// Use relative path on HTTP/HTTPS to prevent CORS/origin mismatch; fallback to localhost on file://
+const API = (window.location.protocol.startsWith("http")) ? "" : "http://localhost:5000";
+
+if (window.location.protocol === "file:") {
+  window.addEventListener("DOMContentLoaded", () => {
+    const banner = document.createElement("div");
+    banner.style.cssText = "background:linear-gradient(90deg, #dc2626, #b91c1c); color:#fff; text-align:center; padding:12px; font-weight:600; font-size:0.92rem; position:sticky; top:0; z-index:9999; box-shadow:0 4px 15px rgba(0,0,0,0.5);";
+    banner.innerHTML = "⚠ You opened this page directly as a file. Please open <a href='http://localhost:5000' style='color:#fff; text-decoration:underline; font-weight:bold;'>http://localhost:5000</a> in your browser for camera and network access!";
+    document.body.prepend(banner);
+  });
+}
+
+let cameraStream  = null;
+let liveStream    = null;
+let liveInterval  = null;
+let lastFpsTime   = Date.now();
+let frameCount    = 0;
+let isRecognizing = false;
+
+// Single Straight Pose Configuration (10 Clean Samples)
+const FRAMES_TO_CAPTURE = 10;
+
+let regState = { enrollment: "", name: "" };
+let currentLiveSubject = "";
+const presentSet = new Map(); // enrollment → { name, time }
+
+// ═══════════════════════ AUDIO SYNTHESIS (Zero External Files) ═══════════════════════
+let audioCtx = null;
+function getAudioContext() {
+  if (!audioCtx) {
+    audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+  }
+  if (audioCtx.state === 'suspended') {
+    audioCtx.resume();
+  }
+  return audioCtx;
+}
+
+function playSuccessChime() {
+  try {
+    const ctx = getAudioContext();
+    const now = ctx.currentTime;
+    const osc1 = ctx.createOscillator();
+    const osc2 = ctx.createOscillator();
+    const gain = ctx.createGain();
+
+    osc1.type = "sine";
+    osc2.type = "sine";
+    osc1.frequency.setValueAtTime(587.33, now); // D5
+    osc1.frequency.setValueAtTime(880.00, now + 0.1); // A5
+    osc2.frequency.setValueAtTime(880.00, now);
+    osc2.frequency.setValueAtTime(1174.66, now + 0.1); // D6
+
+    gain.gain.setValueAtTime(0.18, now);
+    gain.gain.exponentialRampToValueAtTime(0.001, now + 0.4);
+
+    osc1.connect(gain);
+    osc2.connect(gain);
+    gain.connect(ctx.destination);
+
+    osc1.start(now);
+    osc2.start(now);
+    osc1.stop(now + 0.4);
+    osc2.stop(now + 0.4);
+  } catch (e) { }
+}
+
+function playUnknownBeep() {
+  try {
+    const ctx = getAudioContext();
+    const now = ctx.currentTime;
+    const osc = ctx.createOscillator();
+    const gain = ctx.createGain();
+    osc.type = "triangle";
+    osc.frequency.setValueAtTime(220, now);
+    gain.gain.setValueAtTime(0.07, now);
+    gain.gain.exponentialRampToValueAtTime(0.001, now + 0.2);
+    osc.connect(gain);
+    gain.connect(ctx.destination);
+    osc.start(now);
+    osc.stop(now + 0.2);
+  } catch (e) { }
+}
+
+function playShotBeep() {
+  try {
+    const ctx = getAudioContext();
+    const now = ctx.currentTime;
+    const osc = ctx.createOscillator();
+    const gain = ctx.createGain();
+    osc.type = "sine";
+    osc.frequency.setValueAtTime(659.25, now);
+    gain.gain.setValueAtTime(0.08, now);
+    gain.gain.exponentialRampToValueAtTime(0.001, now + 0.08);
+    osc.connect(gain);
+    gain.connect(ctx.destination);
+    osc.start(now);
+    osc.stop(now + 0.08);
+  } catch (e) { }
+}
+
+// ═══════════════════════ TOAST NOTIFICATION ═══════════════════════
+function toast(msg, type = "success") {
+  const el = document.createElement("div");
+  el.className = `toast ${type}`;
+  const icon = type === "success" ? "✅" : type === "error" ? "❌" : "ℹ️";
+  el.innerHTML = `<span>${icon}</span> <span>${msg}</span>`;
+  document.getElementById("toast-container").appendChild(el);
+  setTimeout(() => el.remove(), 4000);
+}
+
+// ═══════════════════════ NAVIGATION ═══════════════════════
+function switchTab(id) {
+  document.querySelectorAll(".tab").forEach(t => t.classList.remove("active"));
+  document.querySelectorAll(".nav-btn").forEach(b => b.classList.remove("active"));
+  document.getElementById(`tab-${id}`).classList.add("active");
+  const navBtn = document.querySelector(`[data-tab="${id}"]`);
+  if (navBtn) navBtn.classList.add("active");
+
+  if (id === "dashboard")  loadDashboard();
+  if (id === "train")      checkTrainStatus();
+  if (id === "reports")    loadSubjects();
+  if (id === "attendance") { onSubjectChange(); loadSubjects(); }
+  if (id !== "attendance" && liveStream) stopLive();
+  if (id !== "register" && cameraStream) stopCamera();
+}
+
+// ═══════════════════════ DASHBOARD & STATS ═══════════════════════
+async function loadDashboard() {
+  try {
+    const r = await fetch(`${API}/api/stats`);
+    const d = await r.json();
+    document.getElementById("s-students").textContent = d.students_count ?? 0;
+    document.getElementById("s-subjects").textContent = (d.subjects || []).length;
+    document.getElementById("s-model").textContent    = d.model_trained ? "✅ Ready" : "⚠ Untrained";
+    document.getElementById("s-images").textContent   = d.face_folders ?? 0;
+
+    const badge = document.getElementById("model-badge");
+    if (d.model_trained) {
+      badge.className   = "status-badge trained";
+      badge.textContent = "✅ Model Ready";
+    } else {
+      badge.className   = "status-badge untrained";
+      badge.textContent = "⚠ Model Not Trained";
+    }
+
+    loadStudentTable();
+  } catch (e) {
+    console.error("Stats load failed:", e);
+  }
+}
+
+async function loadStudentTable() {
+  const wrap  = document.getElementById("dash-students-wrap");
+  const count = document.getElementById("dash-students-count");
+  try {
+    const r = await fetch(`${API}/api/students`);
+    const d = await r.json();
+    const students = d.students || [];
+    count.textContent = `${students.length} student(s) enrolled`;
+
+    if (!students.length) {
+      wrap.innerHTML = `<div class="empty-state"><div class="icon">👥</div><div class="text-sm">No students registered yet. Go to Register tab to enroll!</div></div>`;
+      return;
+    }
+    wrap.innerHTML = `
+      <div class="table-wrap">
+      <table>
+        <thead><tr>
+          <th>Enrollment</th>
+          <th>Full Name</th>
+          <th>Department</th>
+          <th>Email</th>
+          <th>Phone</th>
+          <th style="text-align:right">Action</th>
+        </tr></thead>
+        <tbody>
+          ${students.map(s => `
+            <tr>
+              <td class="mono"><strong>#${s.Enrollment || "—"}</strong></td>
+              <td>${s.Name || "—"}</td>
+              <td>${s.Department || "—"}</td>
+              <td>${s.Email || "—"}</td>
+              <td>${s.Phone || "—"}</td>
+              <td style="text-align:right">
+                <button class="btn btn-red" style="padding:4px 10px; font-size:0.75rem;" onclick="deleteStudent('${s.Enrollment}', '${s.Name}')">
+                  🗑 Delete
+                </button>
+              </td>
+            </tr>
+          `).join("")}
+        </tbody>
+      </table>
+      </div>`;
+  } catch (e) {
+    wrap.innerHTML = `<div class="empty-state text-sm">Failed to load students directory</div>`;
+  }
+}
+
+async function deleteStudent(enrollment, name) {
+  if (!confirm(`Are you sure you want to delete student #${enrollment} (${name})? Their saved face dataset will also be permanently deleted.`)) return;
+  try {
+    const r = await fetch(`${API}/api/students/${enrollment}`, { method: "DELETE" });
+    const d = await r.json();
+    if (d.success) {
+      toast(d.message, "success");
+      loadDashboard();
+      checkTrainStatus();
+    } else {
+      toast(d.error || "Failed to delete student", "error");
+    }
+  } catch (e) {
+    toast("Error: " + e.message, "error");
+  }
+}
+
+// ═══════════════════════ REGISTRATION LOGIC (Straight Pose + 100+ AI Samples) ═══════════════════════
+function updateCaptureDots(count) {
+  const wrap = document.getElementById("capture-dots");
+  if (!wrap) return;
+  wrap.innerHTML = Array.from({ length: FRAMES_TO_CAPTURE }, (_, i) =>
+    `<div class="count-dot ${i < count ? 'filled done-dot' : ''}"></div>`
+  ).join("");
+}
+
+function drawFaceGuide(canvas, pulse = false) {
+  const ctx = canvas.getContext("2d");
+  ctx.clearRect(0, 0, canvas.width, canvas.height);
+  const cx = canvas.width / 2;
+  const cy = canvas.height / 2;
+  const rx = canvas.width * 0.22;
+  const ry = canvas.height * 0.35;
+
+  ctx.save();
+  ctx.beginPath();
+  ctx.ellipse(cx, cy, rx, ry, 0, 0, 2 * Math.PI);
+  ctx.lineWidth = pulse ? 4 : 2;
+  ctx.strokeStyle = pulse ? "#22d3a8" : "rgba(79,156,249,0.55)";
+  ctx.setLineDash(pulse ? [] : [8, 6]);
+  ctx.stroke();
+
+  ctx.font = "600 13px Inter, sans-serif";
+  ctx.fillStyle = pulse ? "#22d3a8" : "rgba(255,255,255,0.7)";
+  ctx.textAlign = "center";
+  ctx.fillText(pulse ? "📸 Capturing 10 frames..." : "Align face inside oval (Straight Pose)", cx, cy + ry + 25);
+  ctx.restore();
+}
+
+async function checkEnrollment() {
+  const enroll = document.getElementById("reg-enrollment").value.trim();
+  const msg = document.getElementById("enroll-check-msg");
+  if (!enroll || enroll.length < 1) { msg.textContent = ""; return; }
+  try {
+    const r = await fetch(`${API}/api/students/check?enrollment=${enroll}`);
+    const d = await r.json();
+    if (d.exists) {
+      msg.innerHTML = `<span style="color:var(--red)">⚠ Enrollment #${enroll} is already registered!</span>`;
+    } else {
+      msg.innerHTML = `<span style="color:var(--green)">✅ Enrollment #${enroll} is available.</span>`;
+    }
+  } catch { msg.textContent = ""; }
+}
+
+async function startCapture() {
+  const enrollment = document.getElementById("reg-enrollment").value.trim();
+  const name       = document.getElementById("reg-name").value.trim();
+  if (!enrollment || !name) { toast("Fill in Enrollment No. and Full Name first", "error"); return; }
+  if (!enrollment.match(/^\d+$/)) { toast("Enrollment must be a valid numeric ID", "error"); return; }
+
+  regState = { enrollment, name };
+
+  if (!navigator.mediaDevices || !navigator.mediaDevices.getUserMedia) {
+    const isLocal = window.location.hostname === "localhost" || window.location.hostname === "127.0.0.1";
+    let helpMsg = "Camera API is unavailable in this browser environment.";
+    if (!isLocal && window.location.protocol === "http:") {
+      helpMsg = `Camera requires HTTPS or localhost. To access from another device (${window.location.origin}), in Chrome visit chrome://flags/#unsafely-treat-insecure-origin-as-secure and add "${window.location.origin}".`;
+    }
+    toast(helpMsg, "error");
+    alert(helpMsg);
+    return;
+  }
+
+  try {
+    let stream = null;
+    try {
+      stream = await navigator.mediaDevices.getUserMedia({
+        video: { width: { ideal: 640 }, height: { ideal: 480 }, facingMode: "user" }
+      });
+    } catch (e1) {
+      stream = await navigator.mediaDevices.getUserMedia({ video: true });
+    }
+    cameraStream = stream;
+    const vid = document.getElementById("camera-video");
+    vid.srcObject = cameraStream;
+    document.getElementById("reg-overlay").classList.add("hidden");
+    document.getElementById("btn-start-capture").disabled = true;
+    document.getElementById("btn-capture-angle").disabled = false;
+    document.getElementById("btn-stop-cam").disabled = false;
+
+    updateCaptureDots(0);
+
+    const regCanvas = document.getElementById("reg-canvas");
+    regCanvas.width = 640;
+    regCanvas.height = 480;
+    drawFaceGuide(regCanvas);
+
+    document.getElementById("angle-label").textContent = "👁 Look Straight at Camera";
+    document.getElementById("angle-hint").textContent  = "Position your face inside the oval, then click 'Capture Face (1-Click)'";
+    document.getElementById("reg-status").innerHTML = `<span style="color:var(--green)">✅ Camera active! Looking straight into camera...</span>`;
+    toast("Camera active! Look straight into the camera", "info");
+  } catch (e) {
+    console.error("Camera access error:", e);
+    let msg = e.message;
+    if (e.name === 'NotAllowedError' || e.name === 'PermissionDeniedError') {
+      msg = "Camera access denied. Please click the lock/camera icon in your browser address bar and allow camera access.";
+    } else if (e.name === 'NotReadableError' || e.name === 'TrackStartError') {
+      msg = "Camera is currently used by another app (Zoom, Teams, or Windows Camera app). Close other apps and try again.";
+    }
+    toast(msg, "error");
+  }
+}
+
+async function captureFace() {
+  const enrollment = document.getElementById("reg-enrollment").value.trim();
+  const name       = document.getElementById("reg-name").value.trim();
+  if (!enrollment || !name) { toast("Fill in Enrollment No. and Full Name first", "error"); return; }
+
+  const btn = document.getElementById("btn-capture-angle");
+  btn.disabled = true;
+
+  const regCanvas = document.getElementById("reg-canvas");
+  drawFaceGuide(regCanvas, true);
+
+  const statusEl = document.getElementById("reg-status");
+  const labelEl  = document.getElementById("angle-label");
+  const hintEl   = document.getElementById("angle-hint");
+
+  const images = [];
+  const vid    = document.getElementById("camera-video");
+  const canvas = document.createElement("canvas");
+  canvas.width  = 640;
+  canvas.height = 480;
+  const ctx = canvas.getContext("2d");
+
+  // Dynamic guidance for natural movement across the 10 shots
+  const guidanceSteps = [
+    { title: "👁 Look Straight", hint: "Look straight into camera" },
+    { title: "👁 Look Straight", hint: "Steady frontal gaze" },
+    { title: "🙂 Micro-movement", hint: "Natural slight movement / blink" },
+    { title: "↖ Slight Tilt Left", hint: "Turn / tilt head slightly to the left" },
+    { title: "↗ Slight Tilt Right", hint: "Turn / tilt head slightly to the right" },
+    { title: "⬆ Slight Chin Up", hint: "Tilt chin slightly upward" },
+    { title: "⬇ Slight Chin Down", hint: "Tilt chin slightly downward" },
+    { title: "🔍 Distance Shift", hint: "Lean slightly closer or back" },
+    { title: "✨ Natural Expression", hint: "Natural comfortable posture" },
+    { title: "🎯 Final Verification", hint: "Hold steady, completing 10 shots" }
+  ];
+
+  // Capture 10 frames with natural 420ms pacing allowing natural head movement
+  for (let i = 0; i < FRAMES_TO_CAPTURE; i++) {
+    const step = guidanceSteps[i] || { title: "📸 Capturing", hint: "Hold steady" };
+    if (labelEl) labelEl.textContent = `${step.title} (${i + 1}/${FRAMES_TO_CAPTURE})`;
+    if (hintEl)  hintEl.textContent  = step.hint;
+    btn.innerHTML = `<span class="spinner"></span> Shot ${i + 1}/${FRAMES_TO_CAPTURE}...`;
+    statusEl.innerHTML = `<span style="color:var(--primary)">📸 Shot ${i + 1}/${FRAMES_TO_CAPTURE}: ${step.hint}</span>`;
+
+    // Shutter pip and visual pulse
+    playShotBeep();
+    drawFaceGuide(regCanvas, true);
+
+    ctx.drawImage(vid, 0, 0, 640, 480);
+    images.push(canvas.toDataURL("image/jpeg", 0.72));
+    updateCaptureDots(i + 1);
+
+    await new Promise(r => setTimeout(r, 420));
+  }
+
+  statusEl.innerHTML = `<span style="color:var(--yellow)">⚡ Normalizing illumination & saving 10 clean crops...</span>`;
+  btn.innerHTML = `<span class="spinner"></span> Processing 10 Images...`;
+
+  try {
+    const resp = await fetch(`${API}/api/register`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        enrollment: enrollment,
+        name:       name,
+        department: document.getElementById("reg-dept").value.trim(),
+        email:      document.getElementById("reg-email").value.trim(),
+        phone:      document.getElementById("reg-phone").value.trim(),
+        images:     images
+      })
+    });
+    const d = await resp.json();
+
+    if (!d.success) {
+      toast(d.error || "Capture error", "error");
+      btn.disabled = false;
+      btn.textContent = "📸 Capture Face (1-Click)";
+      drawFaceGuide(regCanvas, false);
+      statusEl.innerHTML = `<span style="color:var(--red)">❌ ${d.error || "Capture failed. Try again."}</span>`;
+      return;
+    }
+
+    // Success!
+    updateCaptureDots(FRAMES_TO_CAPTURE);
+    statusEl.innerHTML = `<span style="color:var(--green)">✅ ${d.message}</span>`;
+    if (labelEl) labelEl.textContent = "🎉 Registration Complete!";
+    if (hintEl)  hintEl.textContent  = `${d.saved_count} face images saved. Click 'Train / Retrain Model' now!`;
+    toast(`🎉 Successfully registered ${name}! ${d.saved_count} face images saved.`, "success");
+    playSuccessChime();
+
+    setTimeout(() => {
+      stopCamera();
+      loadDashboard();
+      switchTab('train');
+    }, 1500);
+
+  } catch (e) {
+    console.error("Upload error:", e);
+    let errMsg = e.message || "Failed to fetch";
+    if (errMsg.includes("Failed to fetch") || errMsg.includes("NetworkError")) {
+      errMsg = "Cannot connect to server. Please open http://localhost:5000 in your browser and ensure python app.py is running.";
+    }
+    toast("Network error: " + errMsg, "error");
+    btn.disabled = false;
+    btn.textContent = "📸 Capture Face (1-Click)";
+    drawFaceGuide(regCanvas, false);
+    statusEl.innerHTML = `<span style="color:var(--red)">❌ ${errMsg}</span>`;
+  }
+}
+
+function stopCamera() {
+  if (cameraStream) {
+    cameraStream.getTracks().forEach(t => t.stop());
+    cameraStream = null;
+  }
+  const regCanvas = document.getElementById("reg-canvas");
+  if (regCanvas) {
+    const ctx = regCanvas.getContext("2d");
+    ctx.clearRect(0, 0, regCanvas.width, regCanvas.height);
+  }
+  document.getElementById("reg-overlay").classList.remove("hidden");
+  document.getElementById("btn-start-capture").disabled = false;
+  document.getElementById("btn-capture-angle").disabled = true;
+  document.getElementById("btn-stop-cam").disabled      = true;
+  document.getElementById("btn-capture-angle").textContent = "📸 Capture Face (1-Click)";
+}
+
+// ═══════════════════════ TRAINING LOGIC ═══════════════════════
+async function checkTrainStatus() {
+  try {
+    const r = await fetch(`${API}/api/train/status`);
+    const d = await r.json();
+    const msg = document.getElementById("train-info-msg");
+    if (d.model_trained) {
+      msg.textContent = "✅ Model is compiled, cached, and ready for live attendance.";
+    } else {
+      msg.textContent = "⚠ Model not trained yet. Register students and click Train.";
+    }
+  } catch {
+    document.getElementById("train-info-msg").textContent = "Cannot reach server.";
+  }
+}
+
+async function trainModel() {
+  const btn = document.getElementById("btn-train");
+  const statusEl = document.getElementById("train-status");
+  btn.disabled = true;
+  btn.innerHTML = `<span class="spinner"></span> Training Model...`;
+
+  const steps = ["tstep-1","tstep-2","tstep-3","tstep-4"];
+  let stepIdx = 0;
+  const stepInterval = setInterval(() => {
+    if (stepIdx < steps.length) {
+      document.getElementById(steps[stepIdx]).classList.add("active");
+      stepIdx++;
+    }
+  }, 600);
+
+  try {
+    const r = await fetch(`${API}/api/train`, { method: "POST" });
+    const d = await r.json();
+    clearInterval(stepInterval);
+
+    if (d.success) {
+      steps.forEach(s => {
+        const el = document.getElementById(s);
+        el.classList.remove("active");
+        el.classList.add("done");
+      });
+      statusEl.innerHTML = `<span style="color:var(--green)">✅ ${d.message}</span>`;
+      document.getElementById("model-badge").className   = "status-badge trained";
+      document.getElementById("model-badge").textContent = "✅ Model Ready";
+      toast("Model trained and cached successfully!", "success");
+      loadDashboard();
+    } else {
+      statusEl.innerHTML = `<span style="color:var(--red)">❌ ${d.error}</span>`;
+      toast(d.error, "error");
+    }
+  } catch (e) {
+    clearInterval(stepInterval);
+    statusEl.innerHTML = `<span style="color:var(--red)">Network error: ${e.message}</span>`;
+    toast("Training failed: " + e.message, "error");
+  }
+
+  btn.disabled = false;
+  btn.textContent = "🧠 Start Model Training";
+  checkTrainStatus();
+}
+
+// ═══════════════════════ LIVE ATTENDANCE HUD ═══════════════════════
+async function startLive() {
+  if (!navigator.mediaDevices || !navigator.mediaDevices.getUserMedia) {
+    const isLocal = window.location.hostname === "localhost" || window.location.hostname === "127.0.0.1";
+    let helpMsg = "Camera API is unavailable in this browser environment.";
+    if (!isLocal && window.location.protocol === "http:") {
+      helpMsg = `Camera requires HTTPS or localhost. To access from another device (${window.location.origin}), in Chrome visit chrome://flags/#unsafely-treat-insecure-origin-as-secure and add "${window.location.origin}".`;
+    }
+    toast(helpMsg, "error");
+    alert(helpMsg);
+    return;
+  }
+
+  try {
+    getAudioContext(); // prime audio on user click
+    await onSubjectChange(); // load attendance for selected subject immediately
+    let stream = null;
+    try {
+      stream = await navigator.mediaDevices.getUserMedia({
+        video: { width: { ideal: 640 }, height: { ideal: 480 }, facingMode: "user" }
+      });
+    } catch (e1) {
+      stream = await navigator.mediaDevices.getUserMedia({ video: true });
+    }
+    liveStream = stream;
+    const vid = document.getElementById("live-video");
+    vid.srcObject = liveStream;
+    document.getElementById("live-overlay").classList.add("hidden");
+    document.getElementById("btn-live-start").disabled = true;
+    document.getElementById("btn-live-stop").disabled  = false;
+
+    // Run recognition loop every 600ms
+    liveInterval = setInterval(recognizeFrame, 600);
+    toast(`Live camera started for "${currentLiveSubject || 'General'}"!`, "success");
+  } catch (e) {
+    console.error("Live camera error:", e);
+    let msg = e.message;
+    if (e.name === 'NotAllowedError' || e.name === 'PermissionDeniedError') {
+      msg = "Camera permission denied. Allow camera access in your browser address bar.";
+    } else if (e.name === 'NotReadableError' || e.name === 'TrackStartError') {
+      msg = "Camera is currently used by another app. Close other apps and try again.";
+    }
+    toast("Camera error: " + msg, "error");
+  }
+}
+
+function stopLive() {
+  if (liveStream)   { liveStream.getTracks().forEach(t => t.stop()); liveStream = null; }
+  if (liveInterval) { clearInterval(liveInterval); liveInterval = null; }
+  document.getElementById("live-overlay").classList.remove("hidden");
+  document.getElementById("btn-live-start").disabled = false;
+  document.getElementById("btn-live-stop").disabled  = true;
+  document.getElementById("live-fps").textContent    = "FPS: —";
+
+  const canvas = document.getElementById("live-canvas");
+  if (canvas) canvas.getContext("2d").clearRect(0, 0, canvas.width, canvas.height);
+  toast("Live camera stopped", "info");
+}
+
+async function onLiveSubjectSelect(val) {
+  const sel = document.getElementById("live-subject");
+  if (val === "__NEW__") {
+    const newSubj = prompt("Enter new Subject or Session name (e.g., Mathematics, Science, AI Lab):");
+    if (!newSubj || !newSubj.trim()) {
+      if (sel) sel.value = currentLiveSubject || "General";
+      return;
+    }
+    const cleanSubj = newSubj.trim().replace(/[^a-zA-Z0-9_\-\s]/g, "");
+    if (!cleanSubj) {
+      toast("Invalid subject name", "error");
+      if (sel) sel.value = currentLiveSubject || "General";
+      return;
+    }
+    // Check if option already exists
+    let opt = Array.from(sel.options).find(o => o.value.toLowerCase() === cleanSubj.toLowerCase());
+    if (!opt) {
+      opt = document.createElement("option");
+      opt.value = cleanSubj;
+      opt.textContent = cleanSubj;
+      const newOption = sel.querySelector('option[value="__NEW__"]');
+      sel.insertBefore(opt, newOption);
+    }
+    sel.value = opt.value;
+    val = opt.value;
+    toast(`Session switched to "${val}"`, "info");
+  }
+
+  currentLiveSubject = val;
+  const labelEl = document.getElementById("present-subject-label");
+  if (labelEl) labelEl.textContent = val;
+  await loadTodayAttendanceForSubject(val);
+}
+
+async function onSubjectChange() {
+  const input = document.getElementById("live-subject");
+  const subj = (input ? input.value.trim() : "") || "General";
+  if (subj !== "__NEW__") {
+    currentLiveSubject = subj;
+  }
+  const labelEl = document.getElementById("present-subject-label");
+  if (labelEl) labelEl.textContent = currentLiveSubject;
+
+  await loadTodayAttendanceForSubject(currentLiveSubject);
+}
+
+async function loadTodayAttendanceForSubject(subj) {
+  try {
+    const clean = encodeURIComponent(subj || "General");
+    const r = await fetch(`${API}/api/attendance/today?subject=${clean}`);
+    const d = await r.json();
+    presentSet.clear();
+    if (d.success && Array.isArray(d.records)) {
+      d.records.forEach(rec => {
+        const enroll = String(rec.Enrollment || rec.enrollment || "").trim();
+        const name   = String(rec.Name || rec.name || "").trim();
+        const time   = String(rec.Time || rec.time || "").trim();
+        if (enroll) {
+          presentSet.set(enroll, { name, time });
+        }
+      });
+    }
+    updatePresentList();
+  } catch (e) {
+    console.error("Failed to load today's attendance for subject:", e);
+    presentSet.clear();
+    updatePresentList();
+  }
+}
+
+async function recognizeFrame() {
+  if (isRecognizing) return;
+  const vid    = document.getElementById("live-video");
+  const canvas = document.getElementById("live-canvas");
+  if (!vid || !vid.videoWidth) return;
+
+  // Fixed 640x480 coordinate space for exact 1:1 overlay alignment
+  canvas.width  = 640;
+  canvas.height = 480;
+
+  // Capture natural camera frame to send to backend
+  const tempCanvas  = document.createElement("canvas");
+  tempCanvas.width  = 640;
+  tempCanvas.height = 480;
+  const tCtx = tempCanvas.getContext("2d");
+  tCtx.drawImage(vid, 0, 0, 640, 480);
+
+  const rawSubj = (document.getElementById("live-subject") ? document.getElementById("live-subject").value.trim() : "") || "General";
+  const subject = (rawSubj !== "__NEW__") ? rawSubj : (currentLiveSubject || "General");
+  if (subject !== currentLiveSubject) {
+    currentLiveSubject = subject;
+    const labelEl = document.getElementById("present-subject-label");
+    if (labelEl) labelEl.textContent = subject;
+    await loadTodayAttendanceForSubject(subject);
+  }
+
+  const imgData = tempCanvas.toDataURL("image/jpeg", 0.65);
+
+  isRecognizing = true;
+  try {
+    const resp = await fetch(`${API}/api/recognize`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ image: imgData, subject, mark: true })
+    });
+    const d = await resp.json();
+    isRecognizing = false;
+
+    if (!d.success) return;
+
+    const ctx = canvas.getContext("2d");
+    ctx.clearRect(0, 0, canvas.width, canvas.height);
+
+    for (const face of d.results) {
+      const [fx, fy, fw, fh] = face.box;
+      // Invert x coordinate to align with mirrored on-screen video
+      const mx = canvas.width - fx - fw;
+
+      if (face.matched) {
+        // ─── GREEN BOX: VERIFIED STUDENT ───
+        drawCyberBox(ctx, mx, fy, fw, fh, "#22d3a8", "rgba(34,211,168,0.12)");
+
+        const isAlreadyMarked = presentSet.has(face.enrollment);
+        const labelText = `VERIFIED: ${face.name}`;
+        const scoreText = `ID #${face.enrollment} • ${face.confidence}% Match${isAlreadyMarked ? ' (Marked)' : ''}`;
+        drawHUDLabel(ctx, mx, fy, labelText, scoreText, "#22d3a8", "#022c22");
+
+        // Attendance marked event for THIS subject
+        if (!presentSet.has(face.enrollment)) {
+          playSuccessChime();
+          const nowStr = new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit', second: '2-digit' });
+          presentSet.set(face.enrollment, { name: face.name, time: nowStr });
+          updatePresentList();
+          toast(`✅ Attendance Marked: ${face.name} (${subject})`, "success");
+        }
+      } else {
+        // ─── RED BOX: UNKNOWN FACE (NO ATTENDANCE, NEVER MARKS) ───
+        drawCyberBox(ctx, mx, fy, fw, fh, "#f87171", "rgba(248,113,113,0.12)");
+        drawHUDLabel(ctx, mx, fy, "UNKNOWN FACE", "Not Registered • Access Denied", "#f87171", "#450a0a");
+      }
+    }
+
+    // Live FPS Tracking
+    frameCount++;
+    const now = Date.now();
+    if (now - lastFpsTime >= 2000) {
+      const fps = Math.round(frameCount * 1000 / (now - lastFpsTime));
+      document.getElementById("live-fps").textContent = `FPS: ${fps}`;
+      frameCount = 0;
+      lastFpsTime = now;
+    }
+  } catch (e) {
+    isRecognizing = false;
+  }
+}
+
+// Draw stylish cyberpunk HUD bounding box
+function drawCyberBox(ctx, x, y, w, h, color, fillBg) {
+  ctx.save();
+  ctx.fillStyle = fillBg;
+  ctx.fillRect(x, y, w, h);
+
+  ctx.strokeStyle = color;
+  ctx.lineWidth   = 2.5;
+
+  const len = Math.min(22, w * 0.25, h * 0.25);
+
+  // Top-Left corner
+  ctx.beginPath();
+  ctx.moveTo(x, y + len); ctx.lineTo(x, y); ctx.lineTo(x + len, y);
+  ctx.stroke();
+
+  // Top-Right corner
+  ctx.beginPath();
+  ctx.moveTo(x + w - len, y); ctx.lineTo(x + w, y); ctx.lineTo(x + w, y + len);
+  ctx.stroke();
+
+  // Bottom-Left corner
+  ctx.beginPath();
+  ctx.moveTo(x, y + h - len); ctx.lineTo(x, y + h); ctx.lineTo(x + len, y + h);
+  ctx.stroke();
+
+  // Bottom-Right corner
+  ctx.beginPath();
+  ctx.moveTo(x + w - len, y + h); ctx.lineTo(x + w, y + h); ctx.lineTo(x + w, y + h - len);
+  ctx.stroke();
+
+  ctx.restore();
+}
+
+function drawHUDLabel(ctx, x, y, mainText, subText, bgCol, textCol) {
+  ctx.save();
+  ctx.font = "bold 13px Inter, sans-serif";
+  const mainWidth = ctx.measureText(mainText).width;
+  ctx.font = "500 11px JetBrains Mono, monospace";
+  const subWidth  = ctx.measureText(subText).width;
+  const boxWidth  = Math.max(mainWidth, subWidth) + 20;
+  const boxHeight = 36;
+  const badgeY    = Math.max(10, y - boxHeight - 8);
+
+  ctx.fillStyle = bgCol;
+  ctx.beginPath();
+  ctx.roundRect(x, badgeY, boxWidth, boxHeight, 6);
+  ctx.fill();
+
+  ctx.fillStyle = textCol;
+  ctx.font = "bold 13px Inter, sans-serif";
+  ctx.fillText(mainText, x + 10, badgeY + 16);
+
+  ctx.font = "600 10.5px JetBrains Mono, monospace";
+  ctx.fillText(subText, x + 10, badgeY + 30);
+  ctx.restore();
+}
+
+function updatePresentList() {
+  const list = document.getElementById("recognized-list");
+  const subj = (document.getElementById("live-subject") ? document.getElementById("live-subject").value.trim() : "") || "General";
+  document.getElementById("present-count").textContent = `${presentSet.size} present`;
+
+  if (presentSet.size === 0) {
+    list.innerHTML = `
+      <div class="empty-state" style="padding:2.5rem 1rem">
+        <div class="icon">📋</div>
+        <div class="text-sm">No attendance marked yet for "${subj}"</div>
+        <div class="text-muted" style="font-size:0.75rem; margin-top:.3rem">Verified faces will show here automatically</div>
+      </div>`;
+    return;
+  }
+
+  list.innerHTML = [...presentSet.entries()].reverse().map(([enroll, info]) => `
+    <div class="rec-item present">
+      <div class="rec-avatar green">${info.name.charAt(0).toUpperCase()}</div>
+      <div class="rec-info">
+        <div class="rec-name">${info.name}</div>
+        <div class="rec-roll">#${enroll}</div>
+      </div>
+      <div style="display:flex; align-items:center; gap:0.5rem;">
+        <div class="rec-time">✅ ${info.time}</div>
+        <button class="btn-del-mini" onclick="removeLiveAttendance('${enroll}', '${info.name.replace(/'/g, "\\'")}')" title="Remove this attendance mark">✕</button>
+      </div>
+    </div>
+  `).join("");
+}
+
+async function removeLiveAttendance(enroll, name) {
+  const subj = currentLiveSubject || "General";
+  if (!confirm(`Remove attendance for ${name} (#${enroll}) from "${subj}"?`)) return;
+  try {
+    const today = new Date().toISOString().slice(0, 10);
+    const r = await fetch(`${API}/api/attendance/${encodeURIComponent(subj)}?enrollment=${encodeURIComponent(enroll)}&date=${today}`, {
+      method: "DELETE"
+    });
+    const d = await r.json();
+    if (d.success) {
+      presentSet.delete(enroll);
+      updatePresentList();
+      toast(`🗑️ Removed attendance for ${name}`, "info");
+    } else {
+      toast(d.error || d.message || "Failed to remove attendance", "error");
+    }
+  } catch (e) {
+    toast("Error: " + e.message, "error");
+  }
+}
+
+// ═══════════════════════ REPORTS & SUBJECTS LOGIC ═══════════════════════
+async function loadSubjects() {
+  try {
+    const r = await fetch(`${API}/api/attendance/subjects`);
+    const d = await r.json();
+    const sel = document.getElementById("report-subject");
+    const dl  = document.getElementById("subject-suggestions");
+    const liveSel = document.getElementById("live-subject");
+    const subjects = d.subjects || [];
+
+    // 1. Populate Reports Subject dropdown
+    if (sel) {
+      const prevVal = sel.value;
+      sel.innerHTML = `<option value="">Select Subject...</option>` +
+        subjects.map(s => `<option value="${s}">${s}</option>`).join("");
+      if (prevVal && subjects.includes(prevVal)) {
+        sel.value = prevVal;
+      }
+    }
+    if (dl) {
+      dl.innerHTML = subjects.map(s => `<option value="${s}">`).join("");
+    }
+
+    // 2. Populate Live Attendance Subject dropdown
+    if (liveSel) {
+      const currentVal = liveSel.value || currentLiveSubject || "General";
+      const allSubjs = Array.from(new Set(["General", ...subjects]));
+      liveSel.innerHTML = allSubjs.map(s => `<option value="${s}">${s}</option>`).join("") +
+        `<option value="__NEW__">➕ Add New Subject...</option>`;
+      if (allSubjs.includes(currentVal)) {
+        liveSel.value = currentVal;
+      } else {
+        liveSel.value = allSubjs[0] || "General";
+      }
+      currentLiveSubject = liveSel.value;
+      const labelEl = document.getElementById("present-subject-label");
+      if (labelEl) labelEl.textContent = currentLiveSubject;
+    }
+  } catch (e) {
+    console.error("Failed to load subjects:", e);
+  }
+}
+
+async function loadReport() {
+  const sel = document.getElementById("report-subject");
+  const subject = sel ? sel.value.trim() : "";
+  const wrap = document.getElementById("report-table-wrap");
+
+  if (!subject) {
+    wrap.innerHTML = `<div class="empty-state"><div class="icon">📋</div>Select a subject to view attendance records</div>`;
+    return;
+  }
+
+  wrap.innerHTML = `<div class="text-sm text-muted" style="padding:1.5rem">Loading records for <strong>${subject}</strong>...</div>`;
+
+  try {
+    const r = await fetch(`${API}/api/attendance/${encodeURIComponent(subject)}`);
+    const d = await r.json();
+    if (!d.success || !d.records.length) {
+      wrap.innerHTML = `<div class="empty-state"><div class="icon">📋</div>No records found for subject "${subject}"</div>`;
+      return;
+    }
+    const cols = Object.keys(d.records[0]);
+    wrap.innerHTML = `
+      <div class="table-wrap">
+      <table>
+        <thead>
+          <tr>
+            ${cols.map(c => `<th>${c}</th>`).join("")}
+            <th style="text-align:center; width:110px;">Action</th>
+          </tr>
+        </thead>
+        <tbody>
+          ${d.records.map(row => `
+            <tr>
+              ${cols.map(c => {
+                if (c.toLowerCase() === "status") {
+                  return `<td><span class="badge badge-green">✅ ${row[c]}</span></td>`;
+                }
+                if (c.toLowerCase() === "enrollment") {
+                  return `<td class="mono"><strong>#${row[c]}</strong></td>`;
+                }
+                return `<td>${row[c] ?? "—"}</td>`;
+              }).join("")}
+              <td style="text-align:center;">
+                <button class="btn-del-row" onclick="deleteReportRecord('${subject}', '${row['Enrollment'] || ''}', '${row['Date'] || ''}', '${row['Time'] || ''}', '${(row['Name'] || '').replace(/'/g, "\\'")}')" title="Delete this attendance entry">
+                  🗑️ Delete
+                </button>
+              </td>
+            </tr>
+          `).join("")}
+        </tbody>
+      </table>
+      </div>
+      <div style="display:flex; justify-content:space-between; align-items:center; margin-top:1rem; flex-wrap:wrap; gap:.5rem;">
+        <div class="text-sm text-muted">Showing total ${d.total} record(s) for <strong>${subject}</strong></div>
+        <button class="btn btn-red" onclick="clearSubjectRecords('${subject}')" style="font-size:0.8rem; padding:0.4rem 0.8rem;">
+          🗑️ Clear All Records for ${subject}
+        </button>
+      </div>
+    `;
+  } catch (e) {
+    wrap.innerHTML = `<div class="empty-state text-sm">Error loading report: ${e.message}</div>`;
+  }
+}
+
+async function deleteReportRecord(subject, enrollment, date, time, name) {
+  if (!confirm(`Delete attendance record for ${name || '#' + enrollment} on ${date} (${time}) from "${subject}"?`)) return;
+  try {
+    let url = `${API}/api/attendance/${encodeURIComponent(subject)}?enrollment=${encodeURIComponent(enrollment)}`;
+    if (date) url += `&date=${encodeURIComponent(date)}`;
+    if (time) url += `&time=${encodeURIComponent(time)}`;
+
+    const r = await fetch(url, { method: "DELETE" });
+    const d = await r.json();
+    if (d.success) {
+      toast(d.message || "Record deleted", "success");
+      loadReport();
+      if (currentLiveSubject === subject) {
+        await loadTodayAttendanceForSubject(subject);
+      }
+    } else {
+      toast(d.error || d.message || "Failed to delete record", "error");
+    }
+  } catch (e) {
+    toast("Error: " + e.message, "error");
+  }
+}
+
+async function clearSubjectRecords(subject) {
+  const subj = subject || (document.getElementById("report-subject") ? document.getElementById("report-subject").value : "");
+  if (!subj) { toast("Please select a subject first", "error"); return; }
+  if (!confirm(`Are you SURE you want to delete ALL attendance records for "${subj}"? This action cannot be undone.`)) return;
+
+  try {
+    const r = await fetch(`${API}/api/attendance/${encodeURIComponent(subj)}`, { method: "DELETE" });
+    const d = await r.json();
+    if (d.success) {
+      toast(d.message || `All records for ${subj} cleared`, "success");
+      loadReport();
+      if (currentLiveSubject === subj) {
+        presentSet.clear();
+        updatePresentList();
+      }
+    } else {
+      toast(d.error || d.message || "Failed to clear records", "error");
+    }
+  } catch (e) {
+    toast("Error: " + e.message, "error");
+  }
+}
+
+function downloadReport() {
+  const subject = document.getElementById("report-subject").value;
+  if (!subject) { toast("Select a subject first", "error"); return; }
+  window.open(`${API}/api/attendance/download/${encodeURIComponent(subject)}`, "_blank");
+}
+
+// ═══════════════════════ INITIALIZATION ═══════════════════════
+document.addEventListener("DOMContentLoaded", () => {
+  loadDashboard();
+});
+</script>
+</body>
+</html>
